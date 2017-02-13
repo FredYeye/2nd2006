@@ -8,4 +8,4 @@ One idea:
 
 
 
-Currently the test has a timing variance of ~12 dots and is untested on hw.
+Currently the test has a timing variance of ~12 dots and is untested on hw. I should try reading blargg's syncing code but his code is generally really hard to read for me.
