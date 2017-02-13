@@ -1,0 +1,132 @@
+.segment "HEADER"
+	.byte "NES",$1A
+	.byte 2 ;32K PRG
+	.byte 1 ;8K CHR
+	.byte 0 ;vertical arrangement and stuff
+
+.segment "TILES"
+	.incbin "256inc.chr"
+
+.segment "VECTORS"
+	.word nmi, reset, irq
+
+.segment "STARTUP" ; avoids warning
+.segment "CODE"
+
+
+nmi:
+	bit $2002
+	ldx #$01
+irq:
+	rti
+
+reset:
+	sei
+	cld
+
+	bit $2002   ;---wait for ppu to get ready
+vwait1:
+	bit $2002
+	bpl vwait1
+vwait2:
+	bit $2002
+	bpl vwait2  ;---
+
+	lda #$80
+	sta $2000
+	lda #$00
+	sta $2001
+
+	lda #$3F    ;---set BG palette
+	sta $2006
+	lda #$00
+	sta $2006
+
+	lda #$0F    ;BG0:0 - black
+	sta $2007
+	lda #$21    ;BG0:1 - blue
+	sta $2007
+	lda #$25    ;BG0:2 - pink
+	sta $2007
+	lda #$29    ;BG0:3 - green
+	sta $2007   ;---
+
+
+	lda #$20    ;---set NT0 and draw some blue triangles
+	sta $2006
+	lda #$00
+	sta $2006
+
+	lda #$01
+	ldx #$20
+nt:
+	sta $2007
+	dex
+	bne nt      ;---
+
+	lda #$28    ;---set NT1 and draw some pink, offseted triangles
+	sta $2006
+	lda #$00
+	sta $2006
+
+	lda #$02
+	ldx #$20
+nt2:
+	sta $2007
+	dex
+	bne nt2     ;---
+
+;sync cpu-ppu to know what cycle we are on
+;forgot that it's sorta important for knowing when the latest sta $2006 can happen
+;figure out how to keep alignment, probably look at blargg's code
+;sync:
+;	bit $2002
+;	bpl sync
+;	nop
+;	cpx #$01
+;	bne synced
+;	ldx #$00
+;	jmp sync
+;synced:
+
+	lda #$0A    ;enable rendering
+	sta $2001
+
+loop:
+	ldx #$00    ;---wait for vblank
+wait:
+	cpx #$01
+	bne wait    ;---
+
+	lda #$00
+	sta $2006
+	lda #$00
+	sta $2006
+
+	ldy #$4A    ;---wait from scanline 241 to 1
+wait2:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00),Y
+	dey
+	bne wait2   ;---
+
+	cmp ($00,X) ;---can fine tune timing here
+	cmp ($00,X)
+	cmp $0000
+	cmp $00 ;---
+
+	lda #$08
+	sta $2006
+	lda #$00
+
+;the first time this sta is reached in nintendulator is at dot 245
+;after looping, it can start on 239, 241, 242, 244, 245, 247, 248, 250, 251, 253
+;however, i'm not sure what it considers to be the first cycle of an instruction (fetch address 1 or fetch opcode?)
+;so i don't know where the actual write cycle happens.
+;tl;dr: todo: tweak timings and see when it stops shaking on hw
+
+	sta $2006   ;time write cycle to happen around dot 256
+	jmp loop    ;do the same thing next frame, hopefully with minimal cycle timing difference
