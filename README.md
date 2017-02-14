@@ -1,11 +1,6 @@
 # 2nd W 2006
 Attempt at writing a test that shows when t gets copied to v on the second write to 0x2006.
 
-One idea:
+simple: Writes to 0x2006 have a ~12 dot variance. Should be stable on HW but shake on emulators if t->v happens instantly when a write cycle to 0x2006 happens right before dot 256. As there is some timing variance, the exact t->v delay can't be tested. Note: needs HW testing to fine tune idling!
 
-1. know what cycle we are on by doing cpu-ppu syncing
-2. perform a write right before dot 256. the t->v transfer should be delayed and avoid the Y inc
-
-
-
-Currently the test has a timing variance of ~12 dots and is untested on hw. I should try reading blargg's syncing code but his code is generally really hard to read for me.
+next level: Sync cpu-ppu to get a finer write timing around dot 256. There's just some loose ideas here, it doesn't actually work. This is why the simpler test exists, since I'm not a genius.
