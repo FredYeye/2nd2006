@@ -110,7 +110,7 @@ wait2:
 
 	cmp ($00,X) ;---can fine tune timing here
 	cmp ($00,X)
-	cmp $0000
+	cmp $1000
 	cmp $00     ;---
 
 	lda #$08

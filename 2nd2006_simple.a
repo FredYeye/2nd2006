@@ -102,18 +102,15 @@ wait2:
 
 	cmp ($00,X) ;---can fine tune timing here
 	cmp ($00,X)
-	cmp $0000
-	cmp $00     ;---
+	cmp $1000
+	cmp #$00	;---
 
 	lda #$08
 	sta $2006
 	lda #$00
 
-;the first time this sta is reached in nintendulator is at dot 245
-;after looping, it can start on 239, 241, 242, 244, 245, 247, 248, 250, 251, 253
-;however, i'm not sure what it considers to be the first cycle of an instruction (fetch address 1 or fetch opcode?)
-;so i don't know where the actual write cycle happens.
-;tl;dr: todo: tweak timings and see when it stops shaking on hw
+;timed to be 1 cpu cycle too early on nintendulator, thereby causing shaking.
+;todo: test if this is stable on HW
 
 	sta $2006   ;time write cycle to happen around dot 256
 	jmp loop    ;do the same thing next frame, hopefully with minimal cycle timing difference
