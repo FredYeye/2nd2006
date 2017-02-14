@@ -5,7 +5,7 @@
 	.byte 0 ;vertical arrangement and stuff
 
 .segment "TILES"
-	.incbin "256inc.chr"
+	.incbin "2nd2006.chr"
 
 .segment "VECTORS"
 	.word nmi, reset, irq
@@ -32,9 +32,7 @@ vwait2:
 	bit $2002
 	bpl vwait2  ;---
 
-	lda #$80
-	sta $2000
-	lda #$00
+	lda #$00    ;disable rendering
 	sta $2001
 
 	lda #$3F    ;---set BG palette
@@ -64,7 +62,7 @@ nt:
 	dex
 	bne nt      ;---
 
-	lda #$28    ;---set NT1 and draw some pink, offseted triangles
+	lda #$28    ;---set NT1 and draw some pink, off-by-one-Y triangles
 	sta $2006
 	lda #$00
 	sta $2006
@@ -76,21 +74,10 @@ nt2:
 	dex
 	bne nt2     ;---
 
-;sync cpu-ppu to know what cycle we are on
-;forgot that it's sorta important for knowing when the latest sta $2006 can happen
-;figure out how to keep alignment, probably look at blargg's code
-;sync:
-;	bit $2002
-;	bpl sync
-;	nop
-;	cpx #$01
-;	bne synced
-;	ldx #$00
-;	jmp sync
-;synced:
-
 	lda #$0A    ;enable rendering
 	sta $2001
+	lda #$80    ;enable nmi
+	sta $2000
 
 loop:
 	ldx #$00    ;---wait for vblank
@@ -116,7 +103,7 @@ wait2:
 	cmp ($00,X) ;---can fine tune timing here
 	cmp ($00,X)
 	cmp $0000
-	cmp $00 ;---
+	cmp $00     ;---
 
 	lda #$08
 	sta $2006
