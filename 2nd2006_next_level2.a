@@ -15,8 +15,6 @@
 
 
 nmi:
-	bit $2002
-	ldx #$01
 irq:
 	rti
 
@@ -101,15 +99,13 @@ nt2:
 	bne nt2
 
 
-	;enable rendering & nmi
+	;enable rendering
 	lda #$0A
 	sta $2001
-	;lda #$80
-	;sta $2000
 
 
 	;set up for timing adjustment, see "dec $00"
-	lda #$02
+	lda #$01
 	sta $00
 
 
@@ -155,8 +151,7 @@ wait2:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp $1000
-	cmp #$00
+	cmp $00
 
 
 	;first write to 2006
@@ -165,16 +160,19 @@ wait2:
 	lda #$00
 
 
-	;starts at dots 250 and 252
+	;starts at dots 240 and 241 in nintendulator
 	sta $2006
 
-	;idle for timing
+
+	;idle for timing, changes in the fine tune section needs to be compensated for here
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp $00
+	cmp $00
 
-	;this diffs with 1 cpu cycle every other frame 
+
+	;this diffs with 1 cpu cycle every other frame
 	dec $00
 	bne adjust
 	lda #$02

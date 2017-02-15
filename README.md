@@ -5,4 +5,4 @@ simple: Writes to 0x2006 have a ~12 dot variance. Should be stable on HW but sha
 
 next level: Sync cpu-ppu to get a finer write timing around dot 256. There's just some loose ideas here, it doesn't actually work. This is why the simpler test exists, since I'm not a genius.
 
-next level 2: Borrows nmi sync code from blargg. Starts sta $2006 on dots 250 and 252 in nintendulator. Todo: start write a bit earlier.
+next level 2: Borrows nmi sync code from blargg. Starts sta $2006 on dots 240 and 241 in nintendulator.
