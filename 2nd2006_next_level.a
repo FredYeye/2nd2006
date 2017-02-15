@@ -15,8 +15,6 @@
 
 
 nmi:
-	bit $2002
-	ldx #$01
 irq:
 	rti
 
@@ -24,18 +22,24 @@ reset:
 	sei
 	cld
 
-	bit $2002   ;---wait for ppu to get ready
+
+	;wait for ppu to get ready
+	bit $2002
 vwait1:
 	bit $2002
 	bpl vwait1
 vwait2:
 	bit $2002
-	bpl vwait2  ;---
+	bpl vwait2
 
-	lda #$00    ;disable rendering
+
+	;disable rendering
+	lda #$00
 	sta $2001
 
-	lda #$3F    ;---set BG palette
+
+	;set BG palette
+	lda #$3F
 	sta $2006
 	lda #$00
 	sta $2006
@@ -47,10 +51,28 @@ vwait2:
 	lda #$25    ;BG0:2 - pink
 	sta $2007
 	lda #$29    ;BG0:3 - green
-	sta $2007   ;---
+	sta $2007
 
 
-	lda #$20    ;---set NT0 and draw some blue triangles
+	;clear nametables
+	lda #$24
+	sta $2006
+	lda #$00
+	sta $2006
+
+	ldy #$10
+clearNT2:
+	ldx #$80
+clearNT:
+	sta $2007
+	dex
+	bne clearNT
+	dey
+	bne clearNT2
+
+
+	;set NT0 and draw some blue triangles
+	lda #$20
 	sta $2006
 	lda #$00
 	sta $2006
@@ -60,9 +82,11 @@ vwait2:
 nt:
 	sta $2007
 	dex
-	bne nt      ;---
+	bne nt
 
-	lda #$28    ;---set NT1 and draw some pink, off-by-one-Y triangles
+
+	;set NT1 and draw some pink, off-by-one-Y triangles
+	lda #$28
 	sta $2006
 	lda #$00
 	sta $2006
@@ -72,56 +96,90 @@ nt:
 nt2:
 	sta $2007
 	dex
-	bne nt2     ;---
+	bne nt2
 
-sync:           ;---sync cpu-ppu to know what cycle we are on. figure out how to keep sync, also check if we're on an even or odd cycle
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $1234
-	bit $2002
-	bit $2002
-	bpl sync    ;---
 
-	lda #$0A    ;enable rendering
+	;enable rendering
+	lda #$0A
 	sta $2001
-	lda #$80    ;enable nmi
-	sta $2000
 
-loop:
-	ldx #$00    ;---wait for vblank
-wait:
-	cpx #$01
-	bne wait    ;---
 
+	;set up for timing adjustment, see "dec $00"
+	lda #$01
+	sta $00
+
+
+	;idle to time first frame correctly
+	cmp($00,X)
+	cmp($00,X)
+	cmp($00,X)
+	cmp $1000
+
+	;wait for vblank
+sync:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $1000
+	bit $2002
+	bit $2002
+	bpl sync
+
+
+	;draw from NT0
 	lda #$00
 	sta $2006
 	lda #$00
 	sta $2006
 
-	ldy #$4A    ;---wait from scanline 241 to 1
+
+	;wait from scanline 241 to 1 (waits 34*74-1 cycles)
+	ldy #$4A
 wait2:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00),Y
+	cmp $00
+	cmp #$00
 	dey
-	bne wait2   ;---
+	bne wait2
 
-	cmp ($00,X) ;---can fine tune timing here
+
+	;can fine tune timing here
 	cmp ($00,X)
-	cmp $1000
-	cmp $00     ;---
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00
 
+
+	;first write to 2006
 	lda #$08
 	sta $2006
 	lda #$00
 
-;the first time this sta is reached in nintendulator is at dot 245
-;after looping, it can start on 239, 241, 242, 244, 245, 247, 248, 250, 251, 253
-;however, i'm not sure what it considers to be the first cycle of an instruction (fetch address 1 or fetch opcode?)
-;so i don't know where the actual write cycle happens.
-;tl;dr: todo: tweak timings and see when it stops shaking on hw
 
-	sta $2006   ;time write cycle to happen around dot 256
-	jmp loop    ;do the same thing next frame, hopefully with minimal cycle timing difference
+	;starts at dots 240 and 241 in nintendulator
+	sta $2006
+
+
+	;idle for timing, changes in the fine tune section needs to be compensated for here
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00
+	cmp $00
+
+
+	;this diffs with 1 cpu cycle every other frame
+	dec $00
+	bne adjust
+	lda #$02
+	sta $00  ;bne(2) + lda(2) + sta(3) = 7
+	jmp sync
+adjust:
+	nop
+	cmp $00
+	jmp sync ;bne(3) + nop(2) + cmp(3) = 8
