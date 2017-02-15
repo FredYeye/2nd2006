@@ -132,14 +132,15 @@ sync:
 	sta $2006
 
 
-	;wait from scanline 241 to 1
+	;wait from scanline 241 to 1 (waits 34*74-1 cycles)
 	ldy #$4A
 wait2:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00),Y
+	cmp $00
+	cmp #$00
 	dey
 	bne wait2
 
