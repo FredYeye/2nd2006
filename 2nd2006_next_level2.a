@@ -1,0 +1,186 @@
+.segment "HEADER"
+	.byte "NES",$1A
+	.byte 2 ;32K PRG
+	.byte 1 ;8K CHR
+	.byte 0 ;vertical arrangement and stuff
+
+.segment "TILES"
+	.incbin "2nd2006.chr"
+
+.segment "VECTORS"
+	.word nmi, reset, irq
+
+.segment "STARTUP" ; avoids warning
+.segment "CODE"
+
+
+nmi:
+	bit $2002
+	ldx #$01
+irq:
+	rti
+
+reset:
+	sei
+	cld
+
+
+	;wait for ppu to get ready
+	bit $2002
+vwait1:
+	bit $2002
+	bpl vwait1
+vwait2:
+	bit $2002
+	bpl vwait2
+
+
+	;disable rendering
+	lda #$00
+	sta $2001
+
+
+	;set BG palette
+	lda #$3F
+	sta $2006
+	lda #$00
+	sta $2006
+
+	lda #$0F    ;BG0:0 - black
+	sta $2007
+	lda #$21    ;BG0:1 - blue
+	sta $2007
+	lda #$25    ;BG0:2 - pink
+	sta $2007
+	lda #$29    ;BG0:3 - green
+	sta $2007
+
+
+	;clear nametables
+	lda #$24
+	sta $2006
+	lda #$00
+	sta $2006
+
+	ldy #$10
+clearNT2:
+	ldx #$80
+clearNT:
+	sta $2007
+	dex
+	bne clearNT
+	dey
+	bne clearNT2
+
+
+	;set NT0 and draw some blue triangles
+	lda #$20
+	sta $2006
+	lda #$00
+	sta $2006
+
+	lda #$01
+	ldx #$20
+nt:
+	sta $2007
+	dex
+	bne nt
+
+
+	;set NT1 and draw some pink, off-by-one-Y triangles
+	lda #$28
+	sta $2006
+	lda #$00
+	sta $2006
+
+	lda #$02
+	ldx #$20
+nt2:
+	sta $2007
+	dex
+	bne nt2
+
+
+	;enable rendering & nmi
+	lda #$0A
+	sta $2001
+	;lda #$80
+	;sta $2000
+
+
+	;set up for timing adjustment, see "dec $00"
+	lda #$02
+	sta $00
+
+
+	;idle to time first frame correctly
+	cmp($00,X)
+	cmp($00,X)
+	cmp($00,X)
+	cmp $1000
+
+	;wait for vblank
+sync:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $1000
+	bit $2002
+	bit $2002
+	bpl sync
+
+
+	;draw from NT0
+	lda #$00
+	sta $2006
+	lda #$00
+	sta $2006
+
+
+	;wait from scanline 241 to 1
+	ldy #$4A
+wait2:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00),Y
+	dey
+	bne wait2
+
+
+	;can fine tune timing here
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $1000
+	cmp #$00
+
+
+	;first write to 2006
+	lda #$08
+	sta $2006
+	lda #$00
+
+
+	;starts at dots 250 and 252
+	sta $2006
+
+	;idle for timing
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00
+
+	;this diffs with 1 cpu cycle every other frame 
+	dec $00
+	bne adjust
+	lda #$02
+	sta $00  ;bne(2) + lda(2) + sta(3) = 7
+	jmp sync
+adjust:
+	nop
+	cmp $00
+	jmp sync ;bne(3) + nop(2) + cmp(3) = 8
