@@ -85,7 +85,7 @@ nt:
 	bne nt
 
 
-	;set NT1 and draw some pink, off-by-one-Y triangles
+	;set NT1 and draw some pink, Y-2 offset triangles
 	lda #$28
 	sta $2006
 	lda #$00
@@ -113,14 +113,11 @@ nt2:
 	cmp($00,X)
 	cmp($00,X)
 	cmp $00
-	;cmp $00
-	;cmp #$00
 	cmp #$00
 
-	;offset write by 1 scanline + 1 dot
-	;todo: toggle with buttons
+	;store scanline + dot offset
 	lda #$00
-	sta $10
+	sta $04
 
 	;wait for vblank
 sync:
@@ -140,7 +137,7 @@ sync:
 
 
 	;wait from scanline 241 to 1 (waits 34*74-1 cycles)
-	ldy #$4A
+	ldy #$44
 wait:
 	cmp ($00,X)
 	cmp ($00,X)
@@ -156,17 +153,84 @@ wait:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	;cmp ($00,X)
 	cmp $00
+	cmp #$00
 
-	;6 cycles or 5 + 1 + 114 cycles
-	cmp $10
+
+	;get buttons, 144 cycles total
+	;store old buttons
+	lda $01
+	sta $02
+
+	;read buttons
+	lda #$01
+	sta $01
+	sta $4016
+	lsr a
+	sta $4016
+readButtons:
+	lda $4016
+	lsr a
+	rol $01
+	bcc readButtons
+
+	;only read new button presses
+	lda $01
+	eor $02
+	and $01
+
+	;store newly pressed buttons
+	sta $03
+
+
+	;increase the scanline delay, 19 cycles
+	and #$04
+	beq downNotPressed
+	lda $04
+	sec
+	rol
+	and #$03
+	sta $04
+	jmp downUpdated ;2 2 3 2 2 2 3 3
+downNotPressed:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp #$00	     ;2 3 6 6 2
+downUpdated:
+
+	;decrease the scanline delay, 18 cycles
+	lda $03
+	and #$08
+	beq upNotPressed
+	lda $04
+	lsr a
+	sta $04
+	jmp upUpdated  ;3 2 2 3 2 3 3
+upNotPressed:
+	cmp ($00,X)
+	cmp $1000        ;3 2 3 6 4
+upUpdated:
+
+
+	;16, 16+114, or 16+228 cpu cycles taken
+	lda #$01
+	and $04
 	beq skipWait
 	jsr waitScanline
 skipWait:
+	lda #$02
+	and $04
+	beq skipWait2
+	jsr waitScanline
+skipWait2:
 
+
+	;move some idling here to prevent branches from page crossing
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00
+	cmp #$00
 
 	;first write to 2006
 	lda #$08
@@ -174,7 +238,7 @@ skipWait:
 	lda #$00
 
 
-	;starts at dots 240 and 241 in nintendulator
+	;second write
 	sta $2006
 
 
@@ -182,23 +246,27 @@ skipWait:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	;cmp ($00,X)
 	cmp #$00
 
 
-	;6 cycles or 5 + 1 + 21 cycles
-	;todo: smarter code
-	cmp $10
-	beq asd
+	;adjustment depending on which scanline we are on, takes 6, 27 or 20 cpu cycles
+	lda $04
+	beq skip
+	cmp #$01
+	bne scanlineAdjust
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
+	cmp $00
+	jmp skip
+scanlineAdjust:
+	cmp #$03
+	bne skip
 	cmp $1000
-asd:
+	cmp $00
+skip:
 
 
-	;this diffs with 1 cpu cycle every other frame
-	;lda(3) + eor(2) + sta(3) + beq(2 or 3) = 10-11
+	;this diffs with 1 cpu cycle every other frame, takes 10-11 cpu cycles
 	lda $00
 	eor #$01
 	sta $00
@@ -207,6 +275,7 @@ adjust:
 	jmp sync
 
 
+;wait 109 cpu cycles
 waitScanline:
 	cmp ($00,X)
 	cmp ($00,X)
