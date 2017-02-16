@@ -104,16 +104,23 @@ nt2:
 	sta $2001
 
 
-	;set up for timing adjustment, see "dec $00"
-	lda #$01
+	;set up for timing adjustment, see "adjust:"
+	lda #$00
 	sta $00
 
 
 	;idle to time first frame correctly
 	cmp($00,X)
 	cmp($00,X)
-	cmp($00,X)
-	cmp $1000
+	cmp $00
+	;cmp $00
+	;cmp #$00
+	cmp #$00
+
+	;offset write by 1 scanline + 1 dot
+	;todo: toggle with buttons
+	lda #$00
+	sta $10
 
 	;wait for vblank
 sync:
@@ -134,7 +141,7 @@ sync:
 
 	;wait from scanline 241 to 1 (waits 34*74-1 cycles)
 	ldy #$4A
-wait2:
+wait:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
@@ -142,7 +149,7 @@ wait2:
 	cmp $00
 	cmp #$00
 	dey
-	bne wait2
+	bne wait
 
 
 	;can fine tune timing here
@@ -151,8 +158,14 @@ wait2:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
+	;cmp ($00,X)
 	cmp $00
+
+	;6 cycles or 5 + 1 + 114 cycles
+	cmp $10
+	beq skipWait
+	jsr waitScanline
+skipWait:
 
 
 	;first write to 2006
@@ -169,8 +182,19 @@ wait2:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
+	;cmp ($00,X)
 	cmp #$00
+
+
+	;6 cycles or 5 + 1 + 21 cycles
+	;todo: smarter code
+	cmp $10
+	beq asd
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $1000
+asd:
 
 
 	;this diffs with 1 cpu cycle every other frame
@@ -181,3 +205,25 @@ wait2:
 	beq adjust
 adjust:
 	jmp sync
+
+
+waitScanline:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $1000
+	cmp $00
+	rts
