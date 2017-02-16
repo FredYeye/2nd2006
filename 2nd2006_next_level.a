@@ -169,17 +169,15 @@ wait2:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp $00
-	cmp $00
+	cmp ($00,X)
+	cmp #$00
 
 
 	;this diffs with 1 cpu cycle every other frame
-	dec $00
-	bne adjust
-	lda #$02
-	sta $00  ;bne(2) + lda(2) + sta(3) = 7
-	jmp sync
+	;lda(3) + eor(2) + sta(3) + beq(2 or 3) = 10-11
+	lda $00
+	eor #$01
+	sta $00
+	beq adjust
 adjust:
-	nop
-	cmp $00
-	jmp sync ;bne(3) + nop(2) + cmp(3) = 8
+	jmp sync
