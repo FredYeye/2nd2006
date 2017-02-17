@@ -112,12 +112,12 @@ nt2:
 	;idle to time first frame correctly
 	cmp($00,X)
 	cmp($00,X)
-	cmp $00
 	cmp #$00
 
-	;store scanline + dot offset
+	;prepare scanline and dot*3 offset
 	lda #$00
 	sta $04
+	sta $05
 
 	;wait for vblank
 sync:
@@ -136,8 +136,8 @@ sync:
 	sta $2006
 
 
-	;wait from scanline 241 to 1 (waits 34*74-1 cycles)
-	ldy #$44
+	;wait from scanline 241 to 1 (waits 34*67-1 cycles)
+	ldy #$43
 wait:
 	cmp ($00,X)
 	cmp ($00,X)
@@ -148,13 +148,7 @@ wait:
 	dey
 	bne wait
 
-
 	;can fine tune timing here
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00
-	cmp #$00
 
 
 	;get buttons, 144 cycles total
@@ -174,12 +168,10 @@ readButtons:
 	rol $01
 	bcc readButtons
 
-	;only read new button presses
+	;only read new button presses and store them
 	lda $01
 	eor $02
 	and $01
-
-	;store newly pressed buttons
 	sta $03
 
 
@@ -191,11 +183,11 @@ readButtons:
 	rol
 	and #$03
 	sta $04
-	jmp downUpdated ;2 2 3 2 2 2 3 3
+	jmp downUpdated
 downNotPressed:
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp #$00	     ;2 3 6 6 2
+	cmp #$00
 downUpdated:
 
 	;decrease the scanline delay, 18 cycles
@@ -203,16 +195,53 @@ downUpdated:
 	and #$08
 	beq upNotPressed
 	lda $04
-	lsr a
+	lsr
 	sta $04
-	jmp upUpdated  ;3 2 2 3 2 3 3
+	jmp upUpdated
 upNotPressed:
 	cmp ($00,X)
-	cmp $1000        ;3 2 3 6 4
+	cmp $1000
 upUpdated:
 
 
-	;16, 16+114, or 16+228 cpu cycles taken
+	;move some idling here to prevent branches from page crossing
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+
+
+	;increase the dot*3 delay, 22 cycles
+	lda $03
+	and #$01
+	beq rightNotPressed
+	lda $05
+	sec
+	rol
+	and #$03
+	sta $05
+	jmp rightUpdated
+rightNotPressed:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp #$00
+rightUpdated:
+
+	;decrease the dot*3 delay, 18 cycles
+	lda $03
+	and #$02
+	beq leftNotPressed
+	lda $05
+	lsr
+	sta $05
+	jmp leftUpdated
+leftNotPressed:
+	cmp ($00,X)
+	cmp $1000
+leftUpdated:
+
+
+	;16, 16+114, or 16+228 cpu cycles
 	lda #$01
 	and $04
 	beq skipWait
@@ -225,12 +254,18 @@ skipWait:
 skipWait2:
 
 
-	;move some idling here to prevent branches from page crossing
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00
-	cmp #$00
+	;16, 17 or 18 cpu cycles
+	lda #$01
+	and $05
+	beq skipWait3
+	nop
+skipWait3:
+	lda #$02
+	and $05
+	beq skipWait4
+	nop
+skipWait4:
+
 
 	;first write to 2006
 	lda #$08
@@ -243,13 +278,10 @@ skipWait2:
 
 
 	;idle for timing, changes in the fine tune section needs to be compensated for here
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
 	cmp #$00
 
 
-	;adjustment depending on which scanline we are on, takes 6, 27 or 20 cpu cycles
+	;scanline offset adjustment, 6, 27 or 20 cpu cycles, takes 6, 27 or 20 cpu cycles
 	lda $04
 	beq skip
 	cmp #$01
@@ -264,6 +296,18 @@ scanlineAdjust:
 	cmp $1000
 	cmp $00
 skip:
+
+	;dot*3 offset adjustment    18,17,16?
+	lda #$02
+	and $05
+	bne dotAdjust
+	nop
+dotAdjust:
+	lda #$01
+	and $05
+	bne dotAdjust2
+	nop
+dotAdjust2:
 
 
 	;this diffs with 1 cpu cycle every other frame, takes 10-11 cpu cycles
