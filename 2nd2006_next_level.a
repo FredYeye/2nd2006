@@ -15,6 +15,7 @@
 
 
 nmi:
+	;inx
 irq:
 	rti
 
@@ -36,6 +37,12 @@ vwait2:
 	;disable rendering
 	lda #$00
 	sta $2001
+
+
+	;initialize ram for timing adjustment, scanline and dot*3 offset
+	sta $00
+	sta $04
+	sta $05
 
 
 	;set BG palette
@@ -104,26 +111,17 @@ nt2:
 	sta $2001
 
 
-	;set up for timing adjustment, see "adjust:"
-	lda #$00
-	sta $00
-
-
 	;idle to time first frame correctly
-	cmp($00,X)
-	cmp($00,X)
-	cmp #$00
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
 
-	;prepare scanline and dot*3 offset
-	lda #$00
-	sta $04
-	sta $05
 
 	;wait for vblank
 sync:
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp $1000
+	cmp $00,X
 	bit $2002
 	bit $2002
 	bpl sync
@@ -136,21 +134,6 @@ sync:
 	sta $2006
 
 
-	;wait from scanline 241 to 1 (waits 34*67-1 cycles)
-	ldy #$43
-wait:
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00
-	cmp #$00
-	dey
-	bne wait
-
-	;can fine tune timing here
-
-
 	;get buttons, 144 cycles total
 	;store old buttons
 	lda $01
@@ -160,11 +143,11 @@ wait:
 	lda #$01
 	sta $01
 	sta $4016
-	lsr a
+	lsr
 	sta $4016
 readButtons:
 	lda $4016
-	lsr a
+	lsr
 	rol $01
 	bcc readButtons
 
@@ -187,8 +170,9 @@ readButtons:
 downNotPressed:
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp #$00
+	nop
 downUpdated:
+
 
 	;decrease the scanline delay, 18 cycles
 	lda $03
@@ -200,15 +184,8 @@ downUpdated:
 	jmp upUpdated
 upNotPressed:
 	cmp ($00,X)
-	cmp $1000
+	cmp $00,X
 upUpdated:
-
-
-	;move some idling here to prevent branches from page crossing
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
 
 
 	;increase the dot*3 delay, 22 cycles
@@ -224,8 +201,14 @@ upUpdated:
 rightNotPressed:
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp #$00
+	nop
 rightUpdated:
+
+
+	;move some idling here to prevent branch page crossing
+	cmp ($00,X)
+	cmp ($00,X)
+
 
 	;decrease the dot*3 delay, 18 cycles
 	lda $03
@@ -237,7 +220,7 @@ rightUpdated:
 	jmp leftUpdated
 leftNotPressed:
 	cmp ($00,X)
-	cmp $1000
+	cmp $00,X
 leftUpdated:
 
 
@@ -267,21 +250,37 @@ skipWait3:
 skipWait4:
 
 
+	;wait until scanline 1 (waits 2 + 34*Y - 1 cycles)
+	ldy #$43
+wait:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	lsr $FF
+	dey
+	bne wait
+
+	;can fine tune timing here
+	cmp ($00,X)
+	cmp ($00,X)
+
+	
 	;first write to 2006
+	;inc by one for every scanline?
 	lda #$08
 	sta $2006
-	lda #$00
-
 
 	;second write
+	lda #$00
 	sta $2006
 
 
 	;idle for timing, changes in the fine tune section needs to be compensated for here
-	cmp #$00
+	nop
 
 
-	;scanline offset adjustment, 6, 27 or 20 cpu cycles, takes 6, 27 or 20 cpu cycles
+	;scanline offset adjustment, 6, 27 or 20 cpu cycles
 	lda $04
 	beq skip
 	cmp #$01
@@ -293,11 +292,12 @@ skipWait4:
 scanlineAdjust:
 	cmp #$03
 	bne skip
-	cmp $1000
+	cmp $00,X
 	cmp $00
 skip:
 
-	;dot*3 offset adjustment    18,17,16?
+
+	;dot*3 offset adjustment, 18, 17 or 16 cycles
 	lda #$02
 	and $05
 	bne dotAdjust
@@ -337,6 +337,6 @@ waitScanline:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp $1000
+	cmp $00,X
 	cmp $00
 	rts
