@@ -15,9 +15,12 @@
 
 
 nmi:
+	;bit $2002
 	;inx
+	;nop
+	;cmp ($00,X)
 irq:
-	rti
+	rti ;7+4+2+2+6+6
 
 reset:
 	sei
@@ -53,7 +56,7 @@ vwait2:
 
 	lda #$0F    ;BG0:0 - black
 	sta $2007
-	lda #$21    ;BG0:1 - blue
+	lda #$20    ;BG0:1 - white
 	sta $2007
 	lda #$25    ;BG0:2 - pink
 	sta $2007
@@ -114,8 +117,36 @@ nt2:
 	;idle to time first frame correctly
 	cmp ($00,X)
 	cmp ($00,X)
-	;cmp ($00,X)
 	lsr $FF
+
+
+;the idea: wait for bit $2002 to return 1 without the nmi firing.
+;then, run the sync loop once more because the second frame might test one dot earlier? which would be dot 0.
+;now, the write loop should be entered at the same cpu-ppu sync every time (barring different alignments thinking otherwise).
+
+;sync:
+;	cmp ($00,X)
+;	cmp ($00,X)
+;	cmp $00,X
+;	bit $2002
+;	bit $2002
+;	bpl sync ;27
+;-1 here
+;	cpx #$00
+;	bne asd ;wrong cpu-ppu sync
+;fill 27 cycles and do one more loop
+;   jmp sync2
+;asd:
+;	ldx #$00
+;wait to fill the 27 cycles and go back to the sync loop
+;sync:
+;	cmp ($00,X)
+;	cmp ($00,X)
+;	cmp $00,X
+;	bit $2002
+;	bit $2002
+;	bpl sync
+
 
 
 	;wait for vblank
