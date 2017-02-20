@@ -285,20 +285,16 @@ asd3:
 	lsr $FF
 
 
-	;scanline offset adjustment, 6, 27 or 20 cpu cycles
+	;scanline offset adjustment, 6, 27 or 21 cpu cycles
 	lda $04
 	beq skip
-	cmp #$01
-	bne scanlineAdjust
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00
-	jmp skip
-scanlineAdjust:
 	cmp #$03
-	bne skip
+	beq scanlineAdjust
 	cmp $00,X
 	cmp $00
+scanlineAdjust:
+	cmp ($00,X)
+	lsr $FF
 skip:
 
 
