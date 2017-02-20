@@ -15,4 +15,4 @@ Use up/down for +-1 dot, and left/right for +-3 dots. See table below, with timi
 | y=2 | 238-239 | 241-242 | 244-245 |
 
 The test will draw a row of triangles. If they appear as a pixel perfect staircase, the t->v transfer happened after the Y increment at dot 256. If not, it happened before.  
-*Todo*: Probably sync the starting point with the missed nmi.
+*Todo*: add explanation of output, better output
