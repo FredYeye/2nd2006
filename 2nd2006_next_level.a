@@ -81,7 +81,7 @@ clearNT:
 	bne clearNT2
 
 
-	;set NT0 and draw some blue triangles
+	;set NT0 and add a row of triangles
 	lda #$20
 	sta $2006
 	lda #$00
@@ -95,7 +95,7 @@ nt:
 	bne nt
 
 
-	;set NT1 and draw some pink, Y-2 offset triangles
+	;set NT1 and add a row of Y-2 offset triangles
 	lda #$28
 	sta $2006
 	lda #$00
@@ -107,6 +107,19 @@ nt2:
 	sta $2007
 	dex
 	bne nt2
+
+
+	;put some text on screen
+	lda #$29
+	sta $2006
+	lda #$60
+	sta $2006
+nt3:
+	lda text,X
+	sta $2007
+	inx
+	cpx #$40
+	bne nt3
 
 
 	;wait for bit $2002 to return 1 without the nmi firing.
@@ -276,7 +289,7 @@ skipWait3:
 skipWait4:
 
 
-	;wait until scanline 1 (waits 2 + 34*Y - 1 cycles)
+	;wait until scanline 1,2 or 3 (waits 2 + 34*Y - 1 cycles)
 	ldy #$43
 wait:
 	cmp ($00,X)
@@ -352,7 +365,7 @@ dotAdjust2:
 	lda $00
 	eor #$01
 	sta $00
-	bne adjust
+	beq adjust
 adjust:
 	jmp sync
 
@@ -378,3 +391,10 @@ waitScanline:
 	cmp $00,X
 	cmp $00
 	rts
+
+
+text:
+.byte $00,$00,$00,$34,$2F,$3D,$23,$2E,$36,$2D,$00,$3E,$00,$3A,$3B,$11
+.byte $00,$23,$2E,$33,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+.byte $00,$2B,$24,$25,$33,$3D,$31,$28,$26,$27,$33,$3E,$00,$3A,$3B,$13
+.byte $00,$23,$2E,$33,$32,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
