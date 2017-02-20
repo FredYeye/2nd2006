@@ -15,12 +15,12 @@
 
 
 nmi:
-	;bit $2002
-	;inx
-	;nop
-	;cmp ($00,X)
+	bit $2002
+	inx
+	nop
+	cmp ($00,X)
 irq:
-	rti ;7+4+2+2+6+6
+	rti
 
 reset:
 	sei
@@ -109,44 +109,51 @@ nt2:
 	bne nt2
 
 
-	;enable rendering
-	lda #$0A
-	sta $2001
-
-
-	;idle to time first frame correctly
+	;wait for bit $2002 to return 1 without the nmi firing.
+	;then, run the sync loop once more because the second frame might test one dot earlier? which would be dot 0.
+	;now, the write loop should be entered at the same cpu-ppu sync every time (barring different alignments thinking otherwise).
+	lda #$80
+	sta $2000
+sync2:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00,X
+	bit $2002
+	bit $2002
+	bpl sync2
+	cpx #$00
+	beq correctSync
+	ldx #$00
 	cmp ($00,X)
 	cmp ($00,X)
 	lsr $FF
+	nop
+	jmp sync2
+correctSync:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	lsr $FF
+sync3:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00,X
+	bit $2002
+	bit $2002
+	bpl sync3
 
 
-;the idea: wait for bit $2002 to return 1 without the nmi firing.
-;then, run the sync loop once more because the second frame might test one dot earlier? which would be dot 0.
-;now, the write loop should be entered at the same cpu-ppu sync every time (barring different alignments thinking otherwise).
+	;idle
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00,X
 
-;sync:
-;	cmp ($00,X)
-;	cmp ($00,X)
-;	cmp $00,X
-;	bit $2002
-;	bit $2002
-;	bpl sync ;27
-;-1 here
-;	cpx #$00
-;	bne asd ;wrong cpu-ppu sync
-;fill 27 cycles and do one more loop
-;   jmp sync2
-;asd:
-;	ldx #$00
-;wait to fill the 27 cycles and go back to the sync loop
-;sync:
-;	cmp ($00,X)
-;	cmp ($00,X)
-;	cmp $00,X
-;	bit $2002
-;	bit $2002
-;	bpl sync
 
+	;enable rendering & disable nmi
+	lda #$0A
+	sta $2001
+	lda #$00
+	sta $2000
 
 
 	;wait for vblank
@@ -345,7 +352,7 @@ dotAdjust2:
 	lda $00
 	eor #$01
 	sta $00
-	beq adjust
+	bne adjust
 adjust:
 	jmp sync
 
