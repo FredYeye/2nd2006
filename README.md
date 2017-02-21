@@ -6,13 +6,9 @@ Writes to 0x2006 have a ~12 dot variance and happen around dot 256.
 
 **next level**:  
 Through questionable code and blargg's nmi sync code, it's possible to time a write with a 1 dot variance.  
-Use up/down for +-1 dot, and left/right for +-3 dots. See table below, with timings for when "sta $2006" starts in nintendulator. Up/down changes y, left/right changes x.  
+Press right or left to increase or decrease the dot offset by one, respectively.  
+For example: the second "sta 0x2006" starts at dots 239-240 at offset 0, and dots 247-248.  
 
-|     | x=0     | x=1     | x=2     |
-|-----|---------|---------|---------|
-| y=0 | 236-237 | 239-240 | 242-243 |
-| y=1 | 237-238 | 240-241 | 243-244 |
-| y=2 | 238-239 | 241-242 | 244-245 |
 
 The test will draw a row of triangles. If they appear as a pixel perfect staircase, the t->v transfer happened after the Y increment at dot 256. If not, it happened before.  
-*Todo*: add explanation of output, better output
+*Todo*: add explanation of output (on screen), better output
