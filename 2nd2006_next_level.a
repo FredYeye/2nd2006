@@ -159,7 +159,7 @@ sync3:
 	;idle
 	cmp ($00,X)
 	cmp ($00,X)
-	lsr $FF
+	cmp $00,X
 
 
 	;enable rendering & disable nmi
