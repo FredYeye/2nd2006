@@ -84,11 +84,11 @@ clearNT:
 	;set NT0 and add a row of triangles
 	lda #$20
 	sta $2006
-	lda #$00
+	lda #$0C
 	sta $2006
 
 	lda #$01
-	ldx #$20
+	ldx #$08
 nt:
 	sta $2007
 	dex
@@ -98,11 +98,11 @@ nt:
 	;set NT1 and add a row of Y-2 offset triangles
 	lda #$28
 	sta $2006
-	lda #$00
+	lda #$0C
 	sta $2006
 
 	lda #$02
-	ldx #$20
+	ldx #$08
 nt2:
 	sta $2007
 	dex
@@ -139,8 +139,8 @@ sync2:
 	ldx #$00
 	cmp ($00,X)
 	cmp ($00,X)
-	lsr $FF
-	nop
+	pha
+	pla
 	jmp sync2
 correctSync:
 	cmp ($00,X)
@@ -179,10 +179,36 @@ sync:
 	bpl sync
 
 
+	;offset value to print, 26 cycles
+	lda $05
+	clc
+	bne mul3
+	lsr $FF
+	jmp skipa
+mul3:
+	adc #$02
+	cmp #$03
+	beq skipa
+	adc #$01
+	jmp add
+skipa:
+	cmp $00,X
+add:
+	clc
+	adc $04
+	ora #$10
+
+	;print location, 16 cycles
+	ldx #$29
+	stx $2006
+	ldx #$89
+	stx $2006
+	sta $2007
+
+
 	;draw from NT0
 	lda #$00
 	sta $2006
-	lda #$00
 	sta $2006
 
 
@@ -210,87 +236,95 @@ readButtons:
 	sta $03
 
 
-	;increase the scanline delay, 19 cycles
-	and #$04
-	beq downNotPressed
-	lda $04
-	sec
-	rol
-	and #$03
-	sta $04
-	jmp downUpdated
-downNotPressed:
-	cmp ($00,X)
-	cmp ($00,X)
-	nop
-downUpdated:
-
-	;decrease the scanline delay, 15 cycles
-	lda $03
-	and #$08
-	beq upNotPressed
-	lsr $04
-	jmp upUpdated
-upNotPressed:
-	cmp $00,X
-	cmp $00
-upUpdated:
-
-
-	;increase the dot*3 delay, 22 cycles
+	;increase dot delay, 38 cycles
 	lda $03
 	and #$01
 	beq rightNotPressed
-	lda $05
-	sec
-	rol
-	and #$03
+	lda #$02
+	cmp $04
+	beq carry
+	inc $04
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00,X
+	jmp done
+carry:
+	lda #$00
+	sta $04
+	lda #$02
+	cmp $05
+	beq carry2
+	inc $05
+	cmp $00
+	jmp done
+carry2:
+	lda #$00
 	sta $05
-	jmp rightUpdated
+	nop
+	jmp done
 rightNotPressed:
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp #$00
-rightUpdated:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+done:
 
-	;decrease the dot*3 delay, 15 cycles
+	;decrease dot delay, 33 cycles
+	ldx #$02
 	lda $03
 	and #$02
 	beq leftNotPressed
-	lsr $05
-	jmp leftUpdated
-leftNotPressed:
-	cmp $00,X
+	lda $04
+	beq carry3
+	dec $04
+	cmp ($00,X)
+	lsr $FF
+	jmp done2
+carry3:
+	stx $04
+	lda $05
+	beq carry4
+	dec $05
+	nop
+	jmp done2
+carry4:
+	stx $05
 	cmp $00
-leftUpdated:
+	jmp done2
+leftNotPressed:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X)
+	lsr $FF
+done2:
 
 
 	;13, 13+114, or 13+228 cpu cycles
-	lda $04
-	lsr
-	bcc skipWait
+	ldx $04
+	dex
+	bmi skipWait
 	jsr waitScanline
 skipWait:
-	lsr
-	bcc skipWait2
+	dex
+	bmi skipWait2
 	jsr waitScanline
 skipWait2:
 
-
 	;13, 14 or 15 cpu cycles
-	lda $05
-	lsr
-	bcc skipWait3
+	ldx $05
+	dex
+	bmi skipWait3
 	nop
 skipWait3:
-	lsr
-	bcc skipWait4
+	dex
+	bmi skipWait4
 	nop
 skipWait4:
 
 
 	;wait until scanline 1,2 or 3 (waits 2 + 34*Y - 1 cycles)
-	ldy #$43
+	ldy #$42
 wait:
 	cmp ($00,X)
 	cmp ($00,X)
@@ -301,7 +335,6 @@ wait:
 	bne wait
 
 	;can fine tune timing here
-	cmp ($00,X)
 	cmp ($00,X)
 	cmp $00,X
 
@@ -339,24 +372,23 @@ asd3:
 	;scanline offset adjustment, 6, 27 or 21 cpu cycles
 	lda $04
 	beq skip
-	cmp #$03
+	cmp #$02
 	beq scanlineAdjust
-	cmp $00,X
-	cmp $00
+	pha
+	pla
 scanlineAdjust:
 	cmp ($00,X)
 	lsr $FF
 skip:
 
-
 	;dot*3 offset adjustment, 15, 14 or 13 cycles
-	lda $05
-	lsr
-	bcs dotAdjust
+	ldx $05
+	dex
+	bpl dotAdjust
 	nop
 dotAdjust:
-	lsr
-	bcs dotAdjust2
+	dex
+	bpl dotAdjust2
 	nop
 dotAdjust2:
 
@@ -388,13 +420,12 @@ waitScanline:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp $00,X
-	cmp $00
+	pha
+	pla
 	rts
 
 
 text:
-.byte $00,$00,$00,$34,$2F,$3D,$23,$2E,$36,$2D,$00,$3E,$00,$3A,$3B,$11
+.byte $00,$2B,$24,$25,$33,$3D,$31,$28,$26,$27,$33,$3E,$00,$3B,$3A,$11
 .byte $00,$23,$2E,$33,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-.byte $00,$2B,$24,$25,$33,$3D,$31,$28,$26,$27,$33,$3E,$00,$3A,$3B,$13
-.byte $00,$23,$2E,$33,$32,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+.byte $00,$2E,$25,$25,$32,$24,$33,$3E,$00,$00,$00,$00,$00,$00,$00,$00
