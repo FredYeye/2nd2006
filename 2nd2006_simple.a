@@ -1,6 +1,6 @@
 .segment "HEADER"
 	.byte "NES",$1A
-	.byte 2 ;32K PRG
+	.byte 1 ;16K PRG
 	.byte 1 ;8K CHR
 	.byte 0 ;vertical arrangement and stuff
 
