@@ -179,22 +179,11 @@ sync:
 	bpl sync
 
 
-	;offset value to print, 26 cycles
+	;offset value to print, 16 cycles
 	lda $05
 	clc
-	bne mul3
-	lsr $FF
-	jmp skipa
-mul3:
-	adc #$02
-	cmp #$03
-	beq skipa
-	adc #$01
-	jmp add
-skipa:
-	cmp $00,X
-add:
-	clc
+	adc $05
+	adc $05
 	adc $04
 	ora #$10
 
@@ -336,6 +325,8 @@ wait:
 
 	;can fine tune timing here
 	cmp ($00,X)
+	cmp ($00,X)
+	cmp $00,X
 	cmp $00,X
 
 
