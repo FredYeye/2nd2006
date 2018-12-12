@@ -1,31 +1,47 @@
+;----------------
 .segment "HEADER"
+;----------------
+
 	.byte "NES",$1A
 	.byte 1 ;16K PRG
 	.byte 1 ;8K CHR
 	.byte 0 ;vertical arrangement and stuff
 
+
+;---------------
 .segment "TILES"
+;---------------
+
 	.incbin "2nd2006.chr"
 
+
+;-----------------
 .segment "VECTORS"
+;-----------------
+
 	.word nmi, reset, irq
 
-.segment "STARTUP" ; avoids warning
+
+;--------------
 .segment "CODE"
+;--------------
 
-
-nmi:
-	bit $2002
-	inx
-	nop
-	cmp ($00,X)
+nmi:            ;7 + 20 cycles
+	bit $2002   ;4
+	inx         ;2
+	nop         ;2
+	cmp ($00,X) ;6
 irq:
-	rti
+	rti         ;6
 
 reset:
 	sei
 	cld
 
+
+;------
+; setup
+;------
 
 	;wait for ppu to get ready
 	bit $2002
@@ -42,25 +58,14 @@ vwait2:
 	sta $2001
 
 
-	;initialize ram for timing adjustment, scanline and dot*3 offset
-	sta $00
-	sta $04
-	sta $05
-
-
 	;set BG palette
 	lda #$3F
 	sta $2006
 	lda #$00
 	sta $2006
-
 	lda #$0F    ;BG0:0 - black
 	sta $2007
 	lda #$20    ;BG0:1 - white
-	sta $2007
-	lda #$25    ;BG0:2 - pink
-	sta $2007
-	lda #$29    ;BG0:3 - green
 	sta $2007
 
 
@@ -69,7 +74,6 @@ vwait2:
 	sta $2006
 	lda #$00
 	sta $2006
-
 	ldy #$10
 clearNT2:
 	ldx #$80
@@ -81,46 +85,57 @@ clearNT:
 	bne clearNT2
 
 
-	;set NT0 and add a row of triangles
+	;NT0: put text on screen
 	lda #$20
-	sta $2006
-	lda #$0C
-	sta $2006
-
-	lda #$01
-	ldx #$08
-nt:
-	sta $2007
-	dex
-	bne nt
-
-
-	;set NT1 and add a row of Y-2 offset triangles
-	lda #$28
-	sta $2006
-	lda #$0C
-	sta $2006
-
-	lda #$02
-	ldx #$08
-nt2:
-	sta $2007
-	dex
-	bne nt2
-
-
-	;put some text on screen
-	lda #$29
 	sta $2006
 	lda #$60
 	sta $2006
-nt3:
+:
 	lda text,X
 	sta $2007
 	inx
 	cpx #$40
-	bne nt3
+	bne :-
 
+	;NT0: add a row of triangles
+	lda #$21
+	sta $2006
+	lda #$0C
+	sta $2006
+	lda #$01
+	ldx #$08
+:
+	sta $2007
+	dex
+	bne :-
+
+	;NT1: add a row of Y-2 offset triangles
+	lda #$28
+	sta $2006
+	lda #$0C
+	sta $2006
+	lda #$02
+	ldx #$08
+:
+	sta $2007
+	dex
+	bne :-
+
+
+	;initialize ram
+	lda $00
+	sta $00     ;timing adjustment every other frame
+	sta $04     ;scanline offset
+	sta $05     ;dot*3 offset
+
+;-------------
+; setup timing
+;-------------
+
+	;sync loop           | 27
+	;sync'd, correct     | 26 + 28
+	;sync3 loop          | 27, 26 on exit
+	;sync'd, not correct | 26 + 27(nmi) + 28
 
 	;wait for bit $2002 to return 1 without the nmi firing.
 	;then, run the sync loop once more because the second frame might test one dot earlier? which would be dot 0.
@@ -128,55 +143,72 @@ nt3:
 	lda #$80
 	sta $2000
 sync2:
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00,X
-	bit $2002
-	bit $2002
-	bpl sync2
-	cpx #$00
-	beq correctSync
-	ldx #$00
-	cmp ($00,X)
-	cmp ($00,X)
-	pha
-	pla
-	jmp sync2
+	cmp ($00,X)     ;6
+	cmp ($00,X)     ;6
+	cmp $00,X       ;4
+	bit $2002       ;4
+	bit $2002       ;4
+	bpl sync2       ;3 or 2
+	cpx #$00        ;2
+	beq correctSync ;3 or 2
+	ldx #$00        ;2
+	cmp ($00,X)     ;6
+	cmp ($00,X)     ;6
+	pha             ;3
+	pla             ;4
+	jmp sync2       ;3
 correctSync:
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	lsr $FF
+	cmp ($00,X) ;6
+	cmp ($00,X) ;6
+	cmp ($00,X) ;6
+	lsr $FF     ;5
 sync3:
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00,X
-	bit $2002
-	bit $2002
-	bpl sync3
-
-
-	;idle
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00,X
+	cmp ($00,X) ;6
+	cmp ($00,X) ;6
+	cmp $00,X   ;4
+	bit $2002   ;4
+	bit $2002   ;4
+	bpl sync3   ;3 or 2
+	;%27 = -1 (26)
 
 
 	;enable rendering & disable nmi
-	lda #$0A
-	sta $2001
-	lda #$00
-	sta $2000
+	lda #$0A    ;2
+	sta $2001   ;4
+	lda #$00    ;2
+	sta $2000   ;4
+	;%27 = 11
 
+	;idle for timing
+	cmp ($00,X) ;6
+	pha         ;3
+	pla         ;4
+	;%27 = 24
 
-	;wait for vblank
+	jmp :+ ;3
+	;%27 = 0
+
+;----------
+; main loop
+;----------
+
+	;code needs to be 27 cycle aligned from here on out. A frame's worth of cpu cycles can be evenly divided by 27.
+	;Every other cycle we run 1 cpu cycle less to keep dot variance as low as possible (differs 1 dot instead of 2).
+	;27 * 1103     = 29781
+	;27 * 1103 - 1 = 29780
+
+.align 256 ;align to easier keep track of page boundaries
+:
+
 sync:
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00,X
-	bit $2002
-	bit $2002
-	bpl sync
+    ;wait for vblank
+	cmp ($00,X) ;6
+	cmp ($00,X) ;6
+	cmp $00,X   ;4
+	bit $2002   ;4
+	bit $2002   ;4
+	bpl sync    ;3 or 2
+	;%27 = -1 (26)
 
 
 	;offset value to print, 16 cycles
@@ -188,24 +220,25 @@ sync:
 	ora #$10
 
 	;print location, 16 cycles
-	ldx #$29
+	ldx #$20
 	stx $2006
 	ldx #$89
 	stx $2006
 	sta $2007
+	;%27 = 4
 
 
 	;draw from NT0
-	lda #$00
-	sta $2006
-	sta $2006
+	lda #$00  ;2
+	sta $2006 ;4
+	sta $2006 ;4
+	;%27 = 14
 
 
 	;get buttons, 144 cycles total
 	;store old buttons
 	lda $01
 	sta $02
-
 	;read buttons
 	lda #$01
 	sta $01
@@ -217,12 +250,12 @@ readButtons:
 	lsr
 	rol $01
 	bcc readButtons
-
 	;only read new button presses and store them
 	lda $01
 	eor $02
 	and $01
 	sta $03
+	;%27 = 23
 
 
 	;increase dot delay, 38 cycles
@@ -258,6 +291,7 @@ rightNotPressed:
 	cmp ($00,X)
 	cmp ($00,X)
 done:
+	;%27 = 7
 
 	;decrease dot delay, 33 cycles
 	ldx #$02
@@ -287,17 +321,18 @@ leftNotPressed:
 	cmp ($00,X)
 	lsr $FF
 done2:
+	;%27 = 13
 
 
-	;13, 13+114, or 13+228 cpu cycles
-	ldx $04
-	dex
-	bmi skipWait
-	jsr waitScanline
+	;13, 12+115, or 11+230 cpu cycles
+	ldx $04          ;3
+	dex              ;2
+	bmi skipWait     ;3 or 2
+	jsr waitScanline ;115
 skipWait:
-	dex
-	bmi skipWait2
-	jsr waitScanline
+	dex              ;2
+	bmi skipWait2    ;3 or 2
+	jsr waitScanline ;115
 skipWait2:
 
 	;13, 14 or 15 cpu cycles
@@ -310,25 +345,42 @@ skipWait3:
 	bmi skipWait4
 	nop
 skipWait4:
+	;%27 = 12 (offset 0)
 
 
-	;wait until scanline 1,2 or 3 (waits 2 + 34*Y - 1 cycles)
-	ldy #$42
-wait:
+	;wait 27 * Y + 1 cycles (6913)
+	ldy #00     ;2
+:
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X)
-	lsr $FF
-	dey
-	bne wait
+	cmp ($00,X) ;6 * 3
+	cmp $00,X   ;4
+	dey         ;2
+	bne :-      ;3 or 2
+	;%27 = 13
 
-	;can fine tune timing here
-	cmp ($00,X)
-	cmp ($00,X)
-	cmp $00,X
-	cmp $00,X
 
+	jmp :+ ;3
+.align 256 ;avoid page boundaries
+	;%27 = 16
+:
+
+	;wait 27 * Y + 1 cycles (2863)
+	ldy #101    ;2
+:
+	cmp ($00,X)
+	cmp ($00,X)
+	cmp ($00,X) ;6 * 3
+	cmp $00,X   ;4
+	dey         ;2
+	bne :-      ;3 or 2
+	;%27 = 17
+
+
+	;final timing adjustment
+	cmp ($00,X) ;6
+	cmp $00     ;3
+	;%27 = 26
 
 	;Y offset, 22 cycles
 	lda #$08
@@ -346,18 +398,15 @@ asd:
 asd2:
 	cmp $00,X
 asd3:
-
+	;%27 = 21
 
 	;first write to 2006
-	sta $2006
+	sta $2006 ;4
 
 	;second write
-	lda #$00
-	sta $2006
-
-
-	;idle for timing, changes in the fine tune section needs to be compensated for here
-	lsr $FF
+	lda #$00  ;2
+	sta $2006 ;4
+	;%27 = 4
 
 
 	;scanline offset adjustment, 6, 27 or 21 cpu cycles
@@ -382,19 +431,28 @@ dotAdjust:
 	bpl dotAdjust2
 	nop
 dotAdjust2:
+	;%27 = 25 (offset 0)
 
 
-	;this diffs with 1 cpu cycle every other frame, takes 10-11 cpu cycles
-	lda $00
-	eor #$01
-	sta $00
-	beq adjust
+	;idle for timing, changes in the fine tune section needs to be compensated for here
+	cmp ($00,X) ;6
+	cmp ($00,X) ;6
+	cmp $00     ;3
+	;%27 = 13
+
+	lda $00    ;3
+	eor #$01   ;2
+	sta $00    ;3
+	bne adjust ;3 or 2
 adjust:
-	jmp sync
+	jmp sync   ;3
+	;%27 = -1 or 0
 
 
-;wait 109 cpu cycles
-waitScanline:
+;-----------
+
+.align 256      ;not necessary but neat
+waitScanline:   ;109 cpu cycles, 115 with jsr included
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
@@ -410,13 +468,16 @@ waitScanline:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
-	pha
-	pla
-	rts
+	cmp ($00,X) ;6 * 16 = 96
+	pha         ;3
+	pla         ;4
+	rts         ;6
 
 
+;--------------
+
+.align 256
 text:
-.byte $00,$2B,$24,$25,$33,$3D,$31,$28,$26,$27,$33,$3E,$00,$3B,$3A,$11
-.byte $00,$23,$2E,$33,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-.byte $00,$2E,$25,$25,$32,$24,$33,$3E,$00,$00,$00,$00,$00,$00,$00,$00
+	.byte $00,$2B,$24,$25,$33,$3D,$31,$28,$26,$27,$33,$3E,$00,$3B,$3A,$11
+	.byte $00,$23,$2E,$33,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	.byte $00,$2E,$25,$25,$32,$24,$33,$3E,$00,$00,$00,$00,$00,$00,$00,$00
