@@ -259,9 +259,9 @@ readButtons:
 
 
 	;increase dot delay, 38 cycles
-	lda $03
-	and #$01
-	beq rightNotPressed
+	lda $03             ;3
+	and #$01            ;2
+	beq rightNotPressed ;3 or 2
 	lda #$02
 	cmp $04
 	beq carry
@@ -289,7 +289,7 @@ rightNotPressed:
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
+	cmp ($00,X) ;6 * 5 (30)
 done:
 	;%27 = 7
 
@@ -324,16 +324,17 @@ done2:
 	;%27 = 13
 
 
-	;13, 12+115, or 11+230 cpu cycles
-	ldx $04          ;3
-	dex              ;2
-	bmi skipWait     ;3 or 2
-	jsr waitScanline ;115
-skipWait:
-	dex              ;2
-	bmi skipWait2    ;3 or 2
-	jsr waitScanline ;115
-skipWait2:
+	;6 + 114 * X cpu cycles
+	ldx $04  ;3
+	beq :++  ;3 or 2
+:
+	jsr waitScanline ;108
+	dex      ;2
+	bne :-   ;3 or 2
+	nop      ;2
+:
+	;%27 = 19
+
 
 	;13, 14 or 15 cpu cycles
 	ldx $05
@@ -345,7 +346,7 @@ skipWait3:
 	bmi skipWait4
 	nop
 skipWait4:
-	;%27 = 12 (offset 0)
+	;%27 = 5
 
 
 	;wait 27 * Y + 1 cycles (6913)
@@ -357,13 +358,15 @@ skipWait4:
 	cmp $00,X   ;4
 	dey         ;2
 	bne :-      ;3 or 2
-	;%27 = 13
+	;%27 = 6
 
 
 	jmp :+ ;3
+	;%27 = 9
+
 .align 256 ;avoid page boundaries
-	;%27 = 16
 :
+
 
 	;wait 27 * Y + 1 cycles (2863)
 	ldy #101    ;2
@@ -374,12 +377,13 @@ skipWait4:
 	cmp $00,X   ;4
 	dey         ;2
 	bne :-      ;3 or 2
-	;%27 = 17
+	;%27 = 10
 
 
 	;final timing adjustment
 	cmp ($00,X) ;6
-	cmp $00     ;3
+	cmp ($00,X) ;6
+	cmp $00,X   ;4
 	;%27 = 26
 
 	;Y offset, 22 cycles
@@ -420,6 +424,7 @@ scanlineAdjust:
 	cmp ($00,X)
 	lsr $FF
 skip:
+	;27 = 10
 
 	;dot*3 offset adjustment, 15, 14 or 13 cycles
 	ldx $05
@@ -431,7 +436,7 @@ dotAdjust:
 	bpl dotAdjust2
 	nop
 dotAdjust2:
-	;%27 = 25 (offset 0)
+	;%27 = 25
 
 
 	;idle for timing, changes in the fine tune section needs to be compensated for here
@@ -452,7 +457,7 @@ adjust:
 ;-----------
 
 .align 256      ;not necessary but neat
-waitScanline:   ;109 cpu cycles, 115 with jsr included
+waitScanline:   ;103 cpu cycles, 109 with jsr included
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
@@ -467,8 +472,7 @@ waitScanline:   ;109 cpu cycles, 115 with jsr included
 	cmp ($00,X)
 	cmp ($00,X)
 	cmp ($00,X)
-	cmp ($00,X)
-	cmp ($00,X) ;6 * 16 = 96
+	cmp ($00,X) ;6 * 15 = 90
 	pha         ;3
 	pla         ;4
 	rts         ;6
